@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Authentication Page{% endblock title %}
+
+{% block body %}
+<div class="container mt-5">
+    <h2 class="mb-4">Authentication Page</h2>
+    {% if user.is_superuser %}
+        <form id="authenticationForm" method="post">
+            {% csrf_token %}
+            {% for aadhaar_detail in aadhaar_details %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Aadhaar Number: {{ aadhaar_detail.aadhaar_number }}</h5>
+                    <p class="card-text">Name: {{ aadhaar_detail.name }}</p>
+                    <p class="card-text">Date of Birth: {{ aadhaar_detail.date_of_birth }}</p>
+                    <p class="card-text">Sex: {{ aadhaar_detail.sex }}</p>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="approveSwitch{{ aadhaar_detail.id }}"
+                            name="approveSwitch{{ aadhaar_detail.id }}">
+                        <label class="form-check-label" for="approveSwitch{{ aadhaar_detail.id }}">Approve</label>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <button type="button" id="submitButton" class="btn btn-primary">Submit</button>
+        </form>
+    {% else %}
+        <p>Access Denied. Only superusers can access this page.</p>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const submitButton = document.getElementById("submitButton");
+    submitButton.addEventListener("click", function() {
+        const approvedDetails = [];
+        const notApprovedDetails = [];
+
+        const form = document.getElementById("authenticationForm");
+        const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+
+        checkboxes.forEach(function(checkbox) {
+            const detailId = checkbox.id.replace('approveSwitch', '');
+            const detail = {
+                id: detailId,
+                aadhaarNumber: document.querySelector(`#approveSwitch${detailId}`).parentNode.previousElementSibling.textContent,
+                name: document.querySelector(`#approveSwitch${detailId}`).parentNode.children[1].textContent,
+                dateOfBirth: document.querySelector(`#approveSwitch${detailId}`).parentNode.children[2].textContent,
+                sex: document.querySelector(`#approveSwitch${detailId}`).parentNode.children[3].textContent
+            };
+
+            if (checkbox.checked) {
+                approvedDetails.push(detail);
+            } else {
+                notApprovedDetails.push(detail);
+            }
+        });
+
+        // Display approved and not approved details
+        console.log("Approved Details:", approvedDetails);
+        console.log("Not Approved Details:", notApprovedDetails);
+        // You can replace the console.log statements with code to display the details in your desired format
+    });
+});
+</script>
+{% endblock body %}

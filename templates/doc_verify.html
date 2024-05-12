@@ -1,0 +1,76 @@
+
+
+{% extends "base.html" %}
+{% block title %}Doc Verification{% endblock title %}
+{% block body %}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="text-center">Aadhaar Verification Result</h2>
+                </div>
+                <div class="card-body">
+                    {% if result_data %}
+                        {% if result_data.extracted_aadhaar %}
+                            <div class="alert alert-success" role="alert">
+                                <h4 class="alert-heading">Extracted Aadhaar Details:</h4>
+                                <ul class="list-unstyled">
+                                    {% for key, value in result_data.extracted_aadhaar.items %}
+                                    <li><strong>{{ key }}:</strong> {{ value }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                            {% if result_data.database_aadhaar %}
+                            <div class="alert alert-info" role="alert">
+                                <h4 class="alert-heading">Database Aadhaar Details:</h4>
+                                <ul class="list-unstyled">
+                                    {% for key, value in result_data.database_aadhaar.items %}
+                                        <li><strong>{{ key }}:</strong> {{ value }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                    <div class="alert alert-warning" role="alert">
+                            <p>No Aadhaar details available.</p>
+                        </div>
+                    {% endif %}
+                    {% if result_data.verification_result %}
+                    <div class="alert alert-danger" role="alert">
+                            <h4 class="alert-heading">Verification Result:</h4>
+                            <p>{{ result_data.verification_result }}</p>
+                        </div>
+                        {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock body %}
+
+
+
+
+
+
+{% comment %} {% extends "base.html" %}
+{% block title %}Doc{% endblock title %}
+{% block body %}
+
+
+    <div class="container d-flex justify-content-center align-items-center">
+        
+        {% if result_data %}
+            <h2>Aadhaar Details:</h2>
+            {{result_data}}
+        {% else %}
+        <p>No result available.</p>
+        {% endif %}
+    </div>
+
+
+{% endblock body %} {% endcomment %}

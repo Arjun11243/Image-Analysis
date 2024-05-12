@@ -1,38 +1,532 @@
 {% extends "base.html" %}
 
 {% block title %}Upload{% endblock title %}
+
 {% block body %}
 
-    <div class="container d-flex justify-content-center align-items-center vh-100">
-        {% comment %} <div class="mb-3">
-        <label for="formFile" class="form-label">Default file input example</label>
-        <input class="form-control" type="file" id="formFile">
-        </div> {% endcomment %}
-
-        <div>
-            <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label for="formFileMultiple" class="form-label">Upload Documets</label>
-                    <input name="file1" class="form-control" type="file" id="formFileMultiple" multiple>
-                    <input name="file2" class="form-control" type="file" id="formFileMultiple" multiple>
+    {% if verified == True and deepfake_result == "Real" %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="alert alert-success" role="alert">
+                    <h4 class="alert-heading">Verification successful!</h4>
+                    <h6>Faces Matched!</h6>
+                    <h6>DeepFake Detection: The Aadhaar hasn't been altered by DeepFake technology.</h6>
+                    <p>Redirecting to <a href="{% url 'doc_verify' %}">doc_verify.html</a>...</p>
                 </div>
-                <button type="submit" class="btn btn-primary">Upload</button>
-            </form>            
+            </div>
         </div>
-        {% comment %} <div class="result">
-            {% if result %}
-                <h1>{{result}}</h1>
-            {% endif %}
-        </div> {% endcomment %}
-        <div class="container d-flex justify-content-center align-items-center">
-    
-            {% if result_string %}
-            <h1>Verified</h1>
-            {% else %}
-            <p>No result available.</p>
-            {% endif %}
+    </div>
+    <script>
+        setTimeout(function() {
+            window.location.href = "{% url 'doc_verify' %}";
+        }, 3000);  // Redirect after 3 seconds
+    </script>
+    {% else %}
+    {% if verified == False %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading">Verification failed!</h4>
+                    <p>The uploaded documents could not be verified.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Upload Documents</h2>
+                        <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="form-group my-4">
+                                <label for="file1">Document 1</label>
+                                <input name="file1" class="form-control" type="file" id="file1" multiple>
+                            </div>
+                            <div class="form-group my-4">
+                                <label for="file2">Document 2</label>
+                                <input name="file2" class="form-control" type="file" id="file2" multiple>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block my-4">Upload</button>
+                        </form>            
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Webcam Image Capture</h2>
+                        <div class="video-container">
+                            <video id="video" autoplay playsinline></video>
+                        </div>
+                        <button id="capture-btn" class="btn btn-primary btn-block mt-2">Capture</button>
+                        <canvas id="canvas" style="display: none;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row justify-content-center mt-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Captured Image Preview</h2>
+                        <img id="captured-image-preview" src="" class="img-fluid mx-auto d-block" alt="Captured Image Preview">
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <style>
+        .video-container {
+            width: 100%;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        }
+
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+
+    <!-- JavaScript code -->
+    <script>
+        // Capture image from the webcam feed
+        document.getElementById('capture-btn').addEventListener('click', function() {
+            var video = document.getElementById('video');
+            
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to base64 encoded image (JPEG format)
+            var imageData = canvas.toDataURL('image/jpeg');
+            
+            // Show a preview of the captured image
+            var preview = document.getElementById('captured-image-preview');
+            preview.src = imageData;
+    
+            // Send captured image to the server along with the first document
+            var form = new FormData();
+            form.append('csrfmiddlewaretoken', '{{ csrf_token }}'); // Add CSRF token
+            form.append('file1', document.getElementById('file1').files[0]); // First document
+            form.append('file2', dataURItoBlob(imageData), 'webcam_image.jpg'); // Webcam image
+    
+            fetch('{% url "upload" %}', {
+                method: 'POST',
+                body: form,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}' // Include CSRF token in headers as well
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // If the response is successful, render it onto the page
+                    response.text().then(html => {
+                        document.body.innerHTML = html;
+                        // Extract URL for redirection from the HTML response
+                        var match = html.match(/<a href="([^"]+)">/);
+                        if (match) {
+                            var redirectUrl = match[1];
+                            // Redirect after 3 seconds
+                            setTimeout(function() {
+                                window.location.href = redirectUrl;
+                            }, 3000);
+                        }
+                    });
+                } else {
+                    console.error('Error sending data to server:', response.status);
+                    // Display error message to the user
+                    // You can show it in a modal or update a specific section of the page
+                }
+            })
+            .catch(error => {
+                console.error('Error sending data to server:', error);
+                // Display error message to the user
+                // You can show it in a modal or update a specific section of the page
+            });
+        });
+    
+        // Convert data URI to Blob object
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            var blob = new Blob([ab], { type: mimeString });
+            return blob;
+        }
+    
+        // Get access to the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                var video = document.getElementById('video');
+                video.srcObject = stream;
+                video.play();
+            })
+            .catch(function(err) {
+                console.error('Error accessing the webcam: ' + err);
+                // Display error message to the user
+                // You can show it in a modal or update a specific section of the page
+            });
+    </script>
+    
+    
+
+    
+    {% endif %}
+
 {% endblock body %}
+
+
+
+{% comment %} {% extends "base.html" %}
+
+{% block title %}Upload{% endblock title %}
+
+{% block body %}
+
+    {% if verified == True and deepfake_result == "Real" %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="alert alert-success" role="alert">
+                    <h4 class="alert-heading">Verification successful!</h4>
+                    <h6>Faces Matched!</h6>
+                    <h6>DeepFake Detection: The Aadhaar hasn't been altered by DeepFake technology.</h6>
+                    <p>Redirecting to <a href="{% url 'doc_verify' %}">doc_verify.html</a>...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        setTimeout(function() {
+            window.location.href = "{% url 'doc_verify' %}";
+        }, 3000);  // Redirect after 3 seconds
+    </script>
+    {% else %}
+    {% if verified == False %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading">Verification failed!</h4>
+                    <p>The uploaded documents could not be verified.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Upload Documents</h2>
+                        <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="form-group my-4">
+                                <label for="file1">Document 1</label>
+                                <input name="file1" class="form-control" type="file" id="file1" multiple>
+                            </div>
+                            <div class="form-group my-4">
+                                <label for="file2">Document 2</label>
+                                <input name="file2" class="form-control" type="file" id="file2" multiple>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block my-4">Upload</button>
+                        </form>            
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Webcam Image Capture</h2>
+                        <div class="video-container">
+                            <video id="video" autoplay playsinline></video>
+                        </div>
+                        <button id="capture-btn" class="btn btn-primary btn-block mt-2">Capture</button>
+                        <canvas id="canvas" style="display: none;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row justify-content-center mt-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Captured Image Preview</h2>
+                        <img id="captured-image-preview" src="" class="img-fluid mx-auto d-block" alt="Captured Image Preview">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .video-container {
+            width: 100%;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        }
+
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+
+    <!-- JavaScript code -->
+    <script>
+        // Capture image from the webcam feed
+        document.getElementById('capture-btn').addEventListener('click', function() {
+            var video = document.getElementById('video');
+            
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to base64 encoded image (JPEG format)
+            var imageData = canvas.toDataURL('image/jpeg');
+            
+            // Show a preview of the captured image
+            var preview = document.getElementById('captured-image-preview');
+            preview.src = imageData;
+    
+            // Send captured image to the server along with the first document
+            var form = new FormData();
+            form.append('csrfmiddlewaretoken', '{{ csrf_token }}'); // Add CSRF token
+            form.append('file1', document.getElementById('file1').files[0]); // First document
+            form.append('file2', dataURItoBlob(imageData), 'webcam_image.jpg'); // Webcam image
+    
+            fetch('{% url "upload" %}', {
+                method: 'POST',
+                body: form,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}' // Include CSRF token in headers as well
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // If the response is successful, render it onto the page
+                    response.text().then(html => {
+                        document.body.innerHTML = html;
+                    });
+                } else {
+                    console.error('Error sending data to server:', response.status);
+                    // Display error message to the user
+                    // You can show it in a modal or update a specific section of the page
+                }
+            })
+            .catch(error => {
+                console.error('Error sending data to server:', error);
+                // Display error message to the user
+                // You can show it in a modal or update a specific section of the page
+            });
+        });
+    
+        // Convert data URI to Blob object
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            var blob = new Blob([ab], { type: mimeString });
+            return blob;
+        }
+    
+        // Get access to the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                var video = document.getElementById('video');
+                video.srcObject = stream;
+                video.play();
+            })
+            .catch(function(err) {
+                console.error('Error accessing the webcam: ' + err);
+                // Display error message to the user
+                // You can show it in a modal or update a specific section of the page
+            });
+    </script>
+    
+
+    
+    {% endif %}
+
+{% endblock body %} {% endcomment %}
+
+
+
+
+{% comment %} {% extends "base.html" %}
+
+{% block title %}Upload{% endblock title %}
+
+{% block body %}
+
+    {% if verified == True and deepfake_result == "Real" %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="alert alert-success" role="alert">
+                    <h4 class="alert-heading">Verification successful!</h4>
+                    <h6>Faces Matched!</h6>
+                    <h6>DeepFake Detection: The Aadhaar hasn't been altered by DeepFake technology.</h6>
+                    <p>Redirecting to <a href="{% url 'doc_verify' %}">doc_verify.html</a>...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        setTimeout(function() {
+            window.location.href = "{% url 'doc_verify' %}";
+        }, 3000);  // Redirect after 3 seconds
+    </script>
+    {% else %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Upload Documents</h2>
+                        <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="form-group my-4">
+                                <label for="file1">Document 1</label>
+                                <input name="file1" class="form-control" type="file" id="file1" multiple>
+                            </div>
+                            <div class="form-group my-4">
+                                <label for="file2">Document 2</label>
+                                <input name="file2" class="form-control" type="file" id="file2" multiple>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block my-4">Upload</button>
+                        </form>            
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Webcam Image Capture</h2>
+                        <div class="video-container">
+                            <video id="video" autoplay playsinline></video>
+                        </div>
+                        <button id="capture-btn" class="btn btn-primary btn-block mt-2">Capture</button>
+                        <canvas id="canvas" style="display: none;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row justify-content-center mt-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Captured Image Preview</h2>
+                        <img id="captured-image-preview" src="" class="img-fluid mx-auto d-block" alt="Captured Image Preview">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .video-container {
+            width: 100%;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        }
+
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+
+    <!-- JavaScript code -->
+    <script>
+        // Capture image from the webcam feed
+        document.getElementById('capture-btn').addEventListener('click', function() {
+            var video = document.getElementById('video');
+            
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to base64 encoded image (JPEG format)
+            var imageData = canvas.toDataURL('image/jpeg');
+            
+            // Show a preview of the captured image
+            var preview = document.getElementById('captured-image-preview');
+            preview.src = imageData;
+    
+            // Send captured image to the server along with the first document
+            var form = new FormData();
+            form.append('csrfmiddlewaretoken', '{{ csrf_token }}'); // Add CSRF token
+            form.append('file1', document.getElementById('file1').files[0]); // First document
+            form.append('file2', dataURItoBlob(imageData), 'webcam_image.jpg'); // Webcam image
+    
+            fetch('{% url "upload" %}', {
+                method: 'POST',
+                body: form,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}' // Include CSRF token in headers as well
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Response from server:', data);
+                // Handle response as needed
+            })
+            .catch(error => {
+                console.error('Error sending data to server:', error);
+            });
+        });
+    
+        // Convert data URI to Blob object
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            var blob = new Blob([ab], { type: mimeString });
+            return blob;
+        }
+    
+        // Get access to the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                var video = document.getElementById('video');
+                video.srcObject = stream;
+                video.play();
+            })
+            .catch(function(err) {
+                console.error('Error accessing the webcam: ' + err);
+            });
+    </script>
+    
+    {% endif %}
+
+{% endblock body %} {% endcomment %}

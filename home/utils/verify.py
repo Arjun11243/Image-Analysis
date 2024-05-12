@@ -6,7 +6,7 @@ def ver(file1,file2):
     models = ["VGG-Face", "Facenet", "OpenFace", "DeepFace", "DeepID", "Dlib", "ArcFace"]
     # verification = DeepFace.verify("face_page_2.jpg", "passport.jpg", model_name = models[6])
     # verification = DeepFace.verify("face_page_2.jpg", "face_page_3.jpg", model_name = models[6])
-    verification = DeepFace.verify(file1, file2, model_name = models[6])
+    verification = DeepFace.verify(img1_path=file1, img2_path=file2, model_name = models[6])
     # print(verification)
     return verification['verified']
 
